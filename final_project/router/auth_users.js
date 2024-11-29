@@ -27,6 +27,38 @@ const isValid = (username) => {
     return !userExists;
 };
 
+// Fonction pour valider un mot de passe
+const isPasswordValid = (password) => {
+    // Vérifie si le mot de passe est présent et a une longueur minimale de 6 caractères
+    if (!password || password.length < 6) {
+        return false;
+    }
+
+    // Vérifie si le mot de passe contient au moins une lettre majuscule
+    if (!/[A-Z]/.test(password)) {
+        return false;
+    }
+
+    // Vérifie si le mot de passe contient au moins une lettre minuscule
+    if (!/[a-z]/.test(password)) {
+        return false;
+    }
+
+    // Vérifie si le mot de passe contient au moins un chiffre
+    if (!/[0-9]/.test(password)) {
+        return false;
+    }
+
+    // Vérifie si le mot de passe contient au moins un caractère spécial (par exemple, !@#$%^&*)
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        return false;
+    }
+
+    // Si toutes les conditions sont remplies, le mot de passe est valide
+    return true;
+};
+
+
 const authenticatedUser = (username, password) => {
     const user = users.find(user => user.username === username && user.password === password);
     return !!user;

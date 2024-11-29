@@ -1,13 +1,39 @@
 const express = require('express');
 let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
+let isPasswordValid = require("./auth_users.js").isPasswordValid;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
 
 
-public_users.post("/register", (req,res) => {
-  //Write your code here
-  return res.status(300).json({message: "on attends"});
+// Route pour l'enregistrement d'un nouvel utilisateur
+public_users.post("/register", (req, res) => {
+  const { username, password, DOB } = req.body;  // On attend ces informations dans le body de la requête
+
+  // Vérifier si tous les champs sont présents
+  if (!username || !password || !DOB) {
+    return res.status(400).json({ message: "Username, password, and date of birth are required" });
+  }
+
+  // Vérifier si le nom d'utilisateur est valide
+  if (!isValid(username)) {
+    return res.status(400).json({ message: "Username is already taken or invalid" });
+  }
+
+  // Vérifier si le mot de passe est valide
+  if (!isPasswordValid(password)) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+
+  // Ajouter le nouvel utilisateur à la liste
+  const newUser = { username, password, DOB };
+  users.push(newUser);
+
+  // Répondre avec un message de succès
+  return res.status(201).json({
+    message: "User registered successfully",
+    user: { username, DOB }
+  });
 });
 
 // Get the book list available in the shop
@@ -83,9 +109,25 @@ public_users.get('/title/:title',function (req, res) {
 });
 
 //  Get book review
-public_users.get('/review/:isbn',function (req, res) {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+public_users.get('/review/:isbn', function (req, res) {
+  const isbn = req.params.isbn;
+
+  // Convertir l'objet books en tableau et trouver le livre par l'ISBN de la critique
+  const book = Object.values(books).find(book =>
+      // Convertir reviews en tableau et rechercher l'ISBN dans les critiques
+      Object.values(book.reviews).find(review => review.isbn === isbn)
+  );
+
+  if (!book) {
+    return res.status(404).json({ message: "Review not found" });
+  }
+
+  // Trouver la critique spécifique par ISBN
+  const review = Object.values(book.reviews).find(review => review.isbn === isbn);
+
+  return res.status(200).json({
+    review: review  // Renvoie la critique spécifique
+  });
 });
 
 module.exports.general = public_users;
