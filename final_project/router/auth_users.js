@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 let books = require("./booksdb.js");
-const {json} = require("express");
+const { v4: uuidv4 } = require('uuid');
 const regd_users = express.Router();
 
 let users = [
@@ -69,10 +69,83 @@ regd_users.post("/login", (req, res) => {
 });
 
 // Add a book review
-regd_users.put("/auth/review/:isbn", (req, res) => {
-    //Write your code here
-    return res.status(300).json({message: "Yet to be implemented"});
+regd_users.put("/auth/review/:isbn", async (req, res) => {
+    try {
+        const username = req.user.data; // Récupérer le username depuis le token
+        const isbnReview = req.params.isbn; // Récupérer l'ISBN depuis les paramètres de l'URL
+        const { isbn, review } = req.body; // Extraire la critique depuis le body
+
+        // Vérifier la présence des données requises
+        if (!isbn || !review) {
+            return res.status(400).json({ message: "ISBN and review are required" });
+        }
+
+        // Fonction pour trouver un livre de manière asynchrone
+        const findBookByISBN = async (isbn) => {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const book =  Object.values(books).find(b => b.isbn === isbn);
+                    console.log(`The isbn : ${isbn}`);
+                    if (book) {
+                        console.log(`The title of book : ${book.title}`);
+                        resolve(book); // Livre trouvé
+                    } else {
+                        reject(new Error(`Book with ISBN ${isbn} not found`)); // Livre non trouvé
+                    }
+                }, 50); // Simule un délai asynchrone de 50 ms
+            });
+        };
+
+        // Recherche asynchrone du livre
+        const book = await findBookByISBN(isbn);
+
+        // Vérification des critiques pour ce livre
+        if (!Array.isArray(book.reviews)) {
+            book.reviews = []; // Initialise les critiques si elles n'existent pas encore
+        }
+
+        let idReview;
+
+        // Trouver une critique existante avec le même ISBN
+        const existingReview = book.reviews.find(review => review.isbn === isbnReview);
+
+        if (!existingReview) {
+            // Si aucune critique existante n'est trouvée, génère un nouvel ID
+            idReview = uuidv4();
+        } else {
+            // Si une critique existe déjà, on garde l'ID de l'ISBN
+            existingReview.message = review;
+
+            return res.status(200).json({
+                reviews: book
+            });
+        }
+
+        const reviewStructure = {
+            isbn: idReview,
+            author: username,
+            message: review
+        };
+
+        book.reviews.push(reviewStructure);
+
+
+        // Réponse de succès
+        return res.status(200).json({
+            book: book,
+        });
+
+    } catch (error) {
+        // Gestion des erreurs
+        if (error.message.includes("not found")) {
+            return res.status(404).json({ message: error.message });
+        }
+        return res.status(500).json({
+            message: error.message,
+        });
+    }
 });
+
 
 module.exports.authenticated = regd_users;
 module.exports.isValid = isValid;

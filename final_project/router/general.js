@@ -11,16 +11,27 @@ public_users.post("/register", (req,res) => {
 });
 
 // Get the book list available in the shop
-public_users.get('/', function (req, res) {
-  // Assuming booksdb.js exports an array of book objects
-  if (books.length === 0) {
-    return res.status(404).json({ message: "No books available" });
-  }
+public_users.get('/', async function (req, res) {
+  try {
+    // Simuler une fonction asynchrone pour récupérer les livres
+    const fetchBooks = async () => {
+      return new Promise((resolve, reject) => {
+        if (Object.keys(books).length === 0) {
+          reject("No books available");
+        } else {
+          resolve(books);
+        }
+      });
+    };
 
-  // JSON.stringify to return a neatly formatted list of books
-  return res.status(200).json({
-    books: JSON.parse(JSON.stringify(books))
-  });
+    const bookList = await fetchBooks();
+    return res.status(200).json({
+      books: JSON.parse(JSON.stringify(bookList))
+    });
+
+  } catch (error) {
+    return res.status(404).json({ message: error });
+  }
 });
 
 // Get book details based on ISBN
