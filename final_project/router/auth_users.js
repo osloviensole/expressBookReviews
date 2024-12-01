@@ -103,7 +103,7 @@ regd_users.post("/login", (req, res) => {
 // Add a book review
 regd_users.put("/auth/review/:isbn", async (req, res) => {
     try {
-        const username = req.user.data; // Récupérer le username depuis le token
+        const username = req.user.data; // Récupérer username depuis le token
         const isbnReview = req.params.isbn; // Récupérer l'ISBN depuis les paramètres de l'URL
         const { isbn, review } = req.body; // Extraire la critique depuis le body
 
