@@ -103,77 +103,110 @@ regd_users.post("/login", (req, res) => {
 // Add a book review
 regd_users.put("/auth/review/:isbn", async (req, res) => {
     try {
-        const username = req.user.data; // Récupérer username depuis le token
-        const isbnReview = req.params.isbn; // Récupérer l'ISBN depuis les paramètres de l'URL
-        const { isbn, review } = req.body; // Extraire la critique depuis le body
+        const username = req.user.data; // Récupérer l'utilisateur depuis le token
+        const reviewIsbn = req.params.isbn; // ISBN de la critique (paramètre URL)
+        const { isbn: bookIsbn, review } = req.body; // ISBN du livre et nouvelle critique (corps de la requête)
 
         // Vérifier la présence des données requises
-        if (!isbn || !review) {
-            return res.status(400).json({ message: "ISBN and review are required" });
+        if (!bookIsbn || !review) {
+            return res.status(400).json({ message: "Book ISBN and review are required." });
         }
 
-        // Fonction pour trouver un livre de manière asynchrone
-        const findBookByISBN = async (isbn) => {
-            return new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    const book =  Object.values(books).find(b => b.isbn === isbn);
-                    console.log(`The isbn : ${isbn}`);
-                    if (book) {
-                        console.log(`The title of book : ${book.title}`);
-                        resolve(book); // Livre trouvé
-                    } else {
-                        reject(new Error(`Book with ISBN ${isbn} not found`)); // Livre non trouvé
-                    }
-                }, 50); // Simule un délai asynchrone de 50 ms
-            });
-        };
+        // Recherche le livre directement dans l'objet books par sa clé (qui correspond à l'ISBN)
+        const book = books[bookIsbn];
 
-        // Recherche asynchrone du livre
-        const book = await findBookByISBN(isbn);
-
-        // Vérification des critiques pour ce livre
-        if (!Array.isArray(book.reviews)) {
-            book.reviews = []; // Initialise les critiques si elles n'existent pas encore
+        if (!book) {
+            return res.status(404).json({ message: `Book with ISBN ${bookIsbn} not found.` });
         }
 
-        let idReview;
+        // Initialiser les critiques si elles n'existent pas
+        if (!book.reviews || typeof book.reviews !== "object") {
+            book.reviews = {};
+        }
 
-        // Trouver une critique existante avec le même ISBN
-        const existingReview = book.reviews.find(review => review.isbn === isbnReview);
+        // Chercher une critique existante avec le même ISBN
+        const existingReview = book.reviews[reviewIsbn];
 
-        if (!existingReview) {
-            // Si aucune critique existante n'est trouvée, génère un nouvel ID
-            idReview = uuidv4();
-        } else {
-            // Si une critique existe déjà, on garde l'ID de l'ISBN
+        if (existingReview) {
+            // Vérifier si l'utilisateur est l'auteur de la critique
+            if (existingReview.author !== username) {
+                // Ajouter une nouvelle critique avec un nouvel ISBN (length + 1)
+                const newReviewIsbn = String(Object.keys(book.reviews).length + 1);
+                book.reviews[newReviewIsbn] = {
+                    author: username,
+                    message: review
+                };
+
+                return res.status(201).json({
+                    message: "New review added successfully.",
+                    reviews: book.reviews
+                });
+            }
+
+            // Mettre à jour la critique existante
             existingReview.message = review;
 
             return res.status(200).json({
-                reviews: book
+                message: "Review updated successfully.",
+                reviews: book.reviews
             });
         }
 
-        const reviewStructure = {
-            isbn: idReview,
+        // Ajouter une nouvelle critique si aucune n'est trouvée
+        book.reviews[reviewIsbn] = {
             author: username,
             message: review
         };
 
-        book.reviews.push(reviewStructure);
-
-
         // Réponse de succès
-        return res.status(200).json({
-            book: book,
+        return res.status(201).json({
+            message: "New review added successfully.",
+            reviews: book.reviews
         });
 
     } catch (error) {
         // Gestion des erreurs
-        if (error.message.includes("not found")) {
-            return res.status(404).json({ message: error.message });
-        }
         return res.status(500).json({
-            message: error.message,
+            message: error.message || "An error occurred."
+        });
+    }
+});
+
+regd_users.delete("/auth/review/delete/:isbn", (req, res) => {
+    try {
+        const username = req.user.data; // Nom d'utilisateur récupéré depuis le token
+        const reviewIsbn = req.params.isbn; // ISBN de la critique à supprimer
+
+        // Recherche du livre contenant la critique
+        const book = Object.values(books).find(book =>
+            book.reviews && book.reviews[reviewIsbn]
+        );
+
+        if (!book) {
+            return res.status(404).json({ message: "Review not found" });
+        }
+
+        const review = book.reviews[reviewIsbn];
+
+        // Vérification de l'auteur de la critique
+        if (review.author !== username) {
+            return res.status(403).json({
+                message: "You are not authorized to delete this review"
+            });
+        }
+
+        // Suppression de la critique
+        delete book.reviews[reviewIsbn];
+
+        return res.status(200).json({
+            message: "Review deleted successfully",
+            reviews: book.reviews
+        });
+    } catch (error) {
+        // Gestion des erreurs
+        return res.status(500).json({
+            message: "An error occurred",
+            error: error.message
         });
     }
 });
